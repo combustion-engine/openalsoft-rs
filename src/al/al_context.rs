@@ -1,21 +1,21 @@
 use als::all::*;
 
 use std::ptr;
-use std::marker::PhantomData;
+use std::sync::Arc;
 
 use super::al_error::*;
 use super::al_device::*;
 
-pub struct ALContext<'a> {
+pub struct ALContext {
     raw: *mut ALCcontext,
-    _marker: PhantomData<&'a ()>,
+    device: Arc<ALDevice>,
 }
 
-impl<'a> ALContext<'a> {
+impl ALContext {
     #[inline(always)]
     pub unsafe fn raw(&self) -> *mut ALCcontext { self.raw }
 
-    pub fn create_from_device<'b: 'a>(device: &mut ALDevice<'b>) -> ALResult<ALContext<'a>> {
+    pub fn create_from_device(device: Arc<ALDevice>) -> ALResult<Arc<ALContext>> {
         let ctx = unsafe { alcCreateContext(device.raw(), ptr::null()) };
 
         if ctx.is_null() {
@@ -24,10 +24,12 @@ impl<'a> ALContext<'a> {
             panic!("Could not create OpenAL context");
         }
 
-        Ok(ALContext { raw: ctx, _marker: PhantomData })
+        Ok(Arc::new(ALContext { raw: ctx, device: device }))
     }
 
-    pub fn make_current(&mut self) -> ALResult<()> {
+    pub fn device(&self) -> Arc<ALDevice> { self.device.clone() }
+
+    pub fn make_current(&self) -> ALResult<()> {
         if ALC_TRUE != unsafe { alcMakeContextCurrent(self.raw) } {
             check_alc_errors!();
 
@@ -38,7 +40,7 @@ impl<'a> ALContext<'a> {
     }
 
     #[inline]
-    pub fn suspend(&mut self) -> ALResult<()> {
+    pub fn suspend(&self) -> ALResult<()> {
         unsafe { alcSuspendContext(self.raw); }
 
         check_alc_errors!();
@@ -47,7 +49,7 @@ impl<'a> ALContext<'a> {
     }
 
     #[inline]
-    pub fn process(&mut self) -> ALResult<()> {
+    pub fn process(&self) -> ALResult<()> {
         unsafe { alcProcessContext(self.raw); }
 
         check_alc_errors!();
@@ -56,9 +58,10 @@ impl<'a> ALContext<'a> {
     }
 }
 
-impl<'a> Drop for ALContext<'a> {
+impl Drop for ALContext {
     fn drop(&mut self) {
         unsafe {
+            // Stop using this context before destroying it
             alcMakeContextCurrent(ptr::null_mut());
             alcDestroyContext(self.raw);
         }

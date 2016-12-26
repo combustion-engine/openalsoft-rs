@@ -1,23 +1,22 @@
 use als::all::*;
 
 use std::ptr;
-use std::marker::PhantomData;
+use std::sync::Arc;
 use std::borrow::Cow;
 use std::ffi::{CString, CStr};
 
 use super::al_error::*;
 use super::al_context::*;
 
-pub struct ALDevice<'a> {
+pub struct ALDevice {
     raw: *mut ALCdevice,
-    _marker: PhantomData<&'a ()>,
 }
 
-impl<'a> ALDevice<'a> {
+impl ALDevice {
     #[inline(always)]
     pub unsafe fn raw(&self) -> *mut ALCdevice { self.raw }
 
-    pub unsafe fn open() -> ALResult<ALDevice<'a>> {
+    pub unsafe fn open() -> ALResult<Arc<ALDevice>> {
         let device = alcOpenDevice(ptr::null());
 
         if device.is_null() {
@@ -26,12 +25,7 @@ impl<'a> ALDevice<'a> {
             panic!("Could not create OpenAL device");
         }
 
-        Ok(ALDevice { raw: device, _marker: PhantomData })
-    }
-
-    #[inline]
-    pub fn create_context<'b>(&mut self) -> ALResult<ALContext<'b>> where 'a: 'b {
-        ALContext::create_from_device(self)
+        Ok(Arc::new(ALDevice { raw: device }))
     }
 
     pub fn extension_present(&self, extension: &str) -> ALResult<bool> {
@@ -59,7 +53,7 @@ impl<'a> ALDevice<'a> {
     }
 }
 
-impl<'a> Drop for ALDevice<'a> {
+impl Drop for ALDevice {
     fn drop(&mut self) {
         unsafe { alcCloseDevice(self.raw); }
 
