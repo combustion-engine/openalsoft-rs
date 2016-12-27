@@ -2,6 +2,7 @@ use als::all::*;
 
 use std::ptr;
 use std::sync::Arc;
+use std::cell::Cell;
 
 use super::al_error::*;
 use super::al_device::*;
@@ -9,6 +10,7 @@ use super::al_device::*;
 pub struct ALContext {
     raw: *mut ALCcontext,
     device: Arc<ALDevice>,
+    thread_local: Cell<bool>,
 }
 
 impl ALContext {
@@ -24,7 +26,11 @@ impl ALContext {
             panic!("Could not create OpenAL context");
         }
 
-        Ok(Arc::new(ALContext { raw: ctx, device: device }))
+        let ctx = Arc::new(ALContext { raw: ctx, device: device, thread_local: Cell::new(false) });
+
+        ctx.make_current()?;
+
+        Ok(ctx)
     }
 
     pub fn device(&self) -> Arc<ALDevice> { self.device.clone() }
@@ -35,6 +41,20 @@ impl ALContext {
 
             panic!("Could not make context current");
         }
+
+        self.thread_local.set(false);
+
+        Ok(())
+    }
+
+    pub fn set_thread_context(&self) -> ALResult<()> {
+        if ALC_TRUE != unsafe { alcSetThreadContext(self.raw) } {
+            check_alc_errors!();
+
+            panic!("Could not make context current");
+        }
+
+        self.thread_local.set(true);
 
         Ok(())
     }
@@ -62,7 +82,12 @@ impl Drop for ALContext {
     fn drop(&mut self) {
         unsafe {
             // Stop using this context before destroying it
-            alcMakeContextCurrent(ptr::null_mut());
+            if self.thread_local.get() {
+                alcSetThreadContext(ptr::null_mut());
+            } else {
+                alcMakeContextCurrent(ptr::null_mut());
+            }
+
             alcDestroyContext(self.raw);
         }
 
