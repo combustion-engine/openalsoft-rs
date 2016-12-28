@@ -76,8 +76,6 @@ impl ALSource {
         try!(self.check());
 
         unsafe {
-            alSourcei(self.0, AL_SOURCE_TYPE, AL_STATIC);
-
             alSourcei(self.0, AL_BUFFER, buffer.raw() as ALint);
         }
 
