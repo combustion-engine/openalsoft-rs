@@ -42,8 +42,8 @@ macro_rules! impl_property {
 
 impl ALSource3D {
     #[inline]
-    pub fn new() -> ALResult<Arc<ALSource3D>> {
-        Ok(ALSource3D::from_source(ALSource::new()?)?)
+    pub fn new(listener: Arc<ALListener>) -> ALResult<Arc<ALSource3D>> {
+        Ok(ALSource3D::from_source(ALSource::new(listener)?)?)
     }
 
     /// Convert a normal `ALSource` into an `ALSource3D`,

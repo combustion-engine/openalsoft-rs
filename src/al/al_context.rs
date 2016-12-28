@@ -3,9 +3,11 @@ use als::all::*;
 use std::ptr;
 use std::sync::Arc;
 use std::cell::Cell;
+use std::ops::Deref;
 
 use super::al_error::*;
 use super::al_device::*;
+use super::al_listener::*;
 
 pub struct ALContext {
     raw: *mut ALCcontext,
@@ -75,6 +77,23 @@ impl ALContext {
         check_alc_errors!();
 
         Ok(())
+    }
+}
+
+impl Deref for ALContext {
+    type Target = Arc<ALDevice>;
+
+    #[inline(always)]
+    fn deref(&self) -> &Arc<ALDevice> { &self.device }
+}
+
+pub trait ALContextArc {
+    fn create_listener(&self) -> Arc<ALListener>;
+}
+
+impl ALContextArc for Arc<ALContext> {
+    fn create_listener(&self) -> Arc<ALListener> {
+        ALListener::new(self.clone())
     }
 }
 

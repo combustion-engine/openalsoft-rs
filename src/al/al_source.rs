@@ -6,10 +6,11 @@ use std::cell::RefCell;
 
 use super::al_error::*;
 use super::al_buffer::*;
+use super::al_listener::*;
 
 use super::ALObject;
 
-pub struct ALSource(ALuint, RefCell<Vec<Arc<ALBuffer>>>);
+pub struct ALSource(ALuint, RefCell<Vec<Arc<ALBuffer>>>, Arc<ALListener>);
 
 impl_simple_alobject!(ALSource, alIsSource, "ALSource");
 
@@ -61,14 +62,14 @@ macro_rules! impl_simple_property {
 }
 
 impl ALSource {
-    pub fn new() -> ALResult<Arc<ALSource>> {
+    pub fn new(listener: Arc<ALListener>) -> ALResult<Arc<ALSource>> {
         let mut source: ALuint = 0;
 
         unsafe { alGenSources(1, &mut source as *mut _); }
 
         check_al_errors!();
 
-        Ok(Arc::new(ALSource(source, RefCell::new(Vec::new()))))
+        Ok(Arc::new(ALSource(source, RefCell::new(Vec::new()), listener)))
     }
 
     pub fn set_buffer(&self, buffer: Arc<ALBuffer>) -> ALResult<Vec<Arc<ALBuffer>>> {

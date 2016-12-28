@@ -8,6 +8,8 @@ use nalgebra::*;
 use super::al_error::*;
 use super::al_device::*;
 use super::al_context::*;
+use super::al_source::*;
+use super::al_source_3d::*;
 
 pub enum ALDistanceModel {
     InverseDistance,
@@ -32,17 +34,7 @@ impl ALDistanceModel {
 }
 
 pub struct ALListener {
-    device: Arc<ALDevice>,
     context: Arc<ALContext>,
-}
-
-impl ALListener {
-    pub fn new(device: Arc<ALDevice>, context: Arc<ALContext>) -> Arc<ALListener> {
-        Arc::new(ALListener { device: device, context: context })
-    }
-
-    #[inline(always)]
-    pub fn device(&self) -> Arc<ALDevice> { self.device.clone() }
 }
 
 impl Deref for ALListener {
@@ -53,6 +45,13 @@ impl Deref for ALListener {
 }
 
 impl ALListener {
+    pub fn new(context: Arc<ALContext>) -> Arc<ALListener> {
+        Arc::new(ALListener { context: context })
+    }
+
+    #[inline(always)]
+    pub fn device(&self) -> Arc<ALDevice> { self.context.device() }
+
     pub fn set_distance_model(&self, model: Option<ALDistanceModel>) -> ALResult<()> {
         unsafe {
             alDistanceModel(model.map_or(AL_NONE, |m| m.to_alenum()));
@@ -143,5 +142,25 @@ impl ALListener {
         let up = Vector3::new(at_up.w, at_up.a, at_up.b);
 
         Ok((at, up))
+    }
+}
+
+/// Allows easy creation of sources from an `Arc<ALListener>`
+pub trait ALListenerArc {
+    /// Create a new `ALSource`
+    fn new_source(&self) -> ALResult<Arc<ALSource>>;
+    /// Create a new `ALSource3D`
+    fn new_3d_source(&self) -> ALResult<Arc<ALSource3D>>;
+}
+
+impl ALListenerArc for Arc<ALListener> {
+    #[inline(always)]
+    fn new_source(&self) -> ALResult<Arc<ALSource>> {
+        ALSource::new(self.clone())
+    }
+
+    #[inline(always)]
+    fn new_3d_source(&self) -> ALResult<Arc<ALSource3D>> {
+        ALSource3D::new(self.clone())
     }
 }

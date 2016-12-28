@@ -8,6 +8,7 @@ use std::ffi::{CString, CStr};
 
 use super::al_error::*;
 use super::al_context::*;
+use super::al_listener::*;
 
 lazy_static! {
     /// `NULL_DEVICE` is useful for checking system capabilities before creating a real device instance.
@@ -153,11 +154,16 @@ impl ALDevice {
 
 pub trait ALDeviceArc {
     fn create_context(&self) -> ALResult<Arc<ALContext>>;
+    fn create_listener(&self) -> ALResult<Arc<ALListener>>;
 }
 
 impl ALDeviceArc for Arc<ALDevice> {
     fn create_context(&self) -> ALResult<Arc<ALContext>> {
         ALContext::create_from_device(self.clone())
+    }
+
+    fn create_listener(&self) -> ALResult<Arc<ALListener>> {
+        Ok(ALListener::new(self.create_context()?))
     }
 }
 
