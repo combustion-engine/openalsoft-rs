@@ -73,6 +73,20 @@ impl ALDevice {
         Ok(res)
     }
 
+    pub fn get_enum(&self, name: &str) -> ALResult<ALenum> {
+        let c_str = CString::new(name)?;
+
+        let res = unsafe { alcGetEnumValue(self.raw, c_str.as_ptr()) };
+
+        check_alc_errors!();
+
+        if res == 0 || res == -1 {
+            Err(ALError::InvalidEnum)
+        } else {
+            Ok(res)
+        }
+    }
+
     pub fn get_string(&self, param: ALenum) -> ALResult<Cow<str>> {
         let c_str = unsafe { alcGetString(self.raw, param) };
 

@@ -1,7 +1,7 @@
 use als::all::*;
 
 use std::borrow::Cow;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use super::al_error::*;
 
@@ -47,5 +47,19 @@ impl ALState {
         check_al_errors!();
 
         Ok(res)
+    }
+
+    pub fn get_enum(name: &str) -> ALResult<ALenum> {
+        let c_str = CString::new(name)?;
+
+        let res = unsafe { alGetEnumValue(c_str.as_ptr()) };
+
+        check_al_errors!();
+
+        if res == 0 || res == -1 {
+            Err(ALError::InvalidEnum)
+        } else {
+            Ok(res)
+        }
     }
 }
