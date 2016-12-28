@@ -3,7 +3,7 @@ pub use als::types;
 #[macro_use]
 pub mod al_error;
 
-pub use self::al_error::*;
+pub use self::al_error::{ALError, ALResult};
 
 pub trait ALObject {
     fn raw(&self) -> types::ALuint;
@@ -32,12 +32,12 @@ pub mod al_state;
 pub mod al_format;
 pub mod al_distance_model;
 
-pub use self::al_device::*;
-pub use self::al_context::*;
-pub use self::al_buffer::*;
-pub use self::al_source::*;
-pub use self::al_source_3d::*;
-pub use self::al_listener::*;
-pub use self::al_state::*;
-pub use self::al_format::*;
-pub use self::al_distance_model::*;
+pub use self::al_device::{ALDevice, ALDeviceArc, NULL_DEVICE};
+pub use self::al_context::{ALContext, ALContextArc};
+pub use self::al_buffer::ALBuffer;
+pub use self::al_source::{ALSource, ALSourceKind, ALSourceState};
+pub use self::al_source_3d::ALSource3D;
+pub use self::al_listener::{ALListener, ALListenerArc};
+pub use self::al_state::ALState;
+pub use self::al_format::{ALFormat, ALSampleRate};
+pub use self::al_distance_model::ALDistanceModel;
