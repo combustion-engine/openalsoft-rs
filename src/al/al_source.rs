@@ -14,11 +14,19 @@ pub struct ALSource(ALuint, RefCell<Vec<Arc<ALBuffer>>>, Arc<ALListener>);
 
 impl_simple_alobject!(ALSource, alIsSource, "ALSource");
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ALSourceState {
     Initial,
     Paused,
     Playing,
     Stopped,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ALSourceKind {
+    Undetermined,
+    Static,
+    Streaming
 }
 
 macro_rules! impl_simple_func {
@@ -72,24 +80,22 @@ impl ALSource {
         Ok(Arc::new(ALSource(source, RefCell::new(Vec::new()), listener)))
     }
 
-    pub fn set_buffer(&self, buffer: Arc<ALBuffer>) -> ALResult<Vec<Arc<ALBuffer>>> {
-        try!(self.check());
+    pub fn kind(&self) -> ALResult<ALSourceKind> {
+        let mut kind = 0;
 
-        unsafe {
-            alSourcei(self.0, AL_BUFFER, buffer.raw() as ALint);
-        }
+        unsafe { alGetSourcei(self.0, AL_SOURCE_TYPE, &mut kind); }
 
         check_al_errors!();
 
-        let mut buffers = self.1.borrow_mut();
-
-        let mut new = vec![buffer];
-
-        mem::swap(&mut new, &mut *buffers);
-
-        Ok(new)
+        Ok(match kind {
+            AL_UNDETERMINED => ALSourceKind::Undetermined,
+            AL_STATIC => ALSourceKind::Static,
+            AL_STREAMING => ALSourceKind::Streaming,
+            _ => return Err(ALError::InvalidValue)
+        })
     }
 
+    /// Add a buffer to the streaming queue
     pub fn queue_buffers<I: Iterator<Item = Arc<ALBuffer>>>(&self, buffer_iter: I) -> ALResult<()> {
         try!(self.check());
 
@@ -106,12 +112,29 @@ impl ALSource {
         Ok(())
     }
 
+    pub fn unqueue_buffer(&self, buffer: Arc<ALBuffer>) -> ALResult<bool> {
+        try!(self.check());
+
+        let mut buffers = self.1.borrow_mut();
+
+        Ok(if let Some(position) = buffers.iter().position(|b| *b == buffer) {
+            unsafe { alSourceUnqueueBuffers(self.0, 1, &mut buffer.raw() as *mut _); }
+
+            check_al_errors!();
+
+            buffers.remove(position);
+
+            true
+        } else { false })
+    }
+
+    /// Remove all queued buffers
     pub fn unqueue_all_buffers(&self) -> ALResult<Vec<Arc<ALBuffer>>> {
         try!(self.check());
 
         let mut buffers = self.1.borrow_mut();
 
-        for buffer in &*buffers {
+        for buffer in buffers.iter() {
             unsafe { alSourceUnqueueBuffers(self.0, 1, &mut buffer.raw() as *mut _); }
 
             check_al_errors!();
@@ -124,10 +147,15 @@ impl ALSource {
         Ok(new)
     }
 
+    /// Get all buffers that are actively queued.
     pub fn buffers(&self) -> Vec<Arc<ALBuffer>> {
         self.1.borrow().clone()
     }
 
+    /// Returns the number of buffers queued to OpenAL.
+    ///
+    /// This number might not be equal to `source.buffers().len()`,
+    /// as this is the count maintained by OpenAL itself.
     pub fn buffers_queued(&self) -> ALResult<usize> {
         try!(self.check());
 
@@ -140,6 +168,7 @@ impl ALSource {
         Ok(count as usize)
     }
 
+    /// Returns the number of buffers that have been played.
     pub fn buffers_processed(&self) -> ALResult<usize> {
         try!(self.check());
 
@@ -167,6 +196,7 @@ impl ALSource {
     impl_simple_func!(stop, alSourceStop);
     impl_simple_func!(rewind, alSourceRewind);
 
+    /// Get the active source state
     pub fn state(&self) -> ALResult<ALSourceState> {
         try!(self.check());
 
@@ -181,6 +211,11 @@ impl ALSource {
             AL_STOPPED => ALSourceState::Stopped,
             _ => return Err(ALError::InvalidValue)
         })
+    }
+
+    #[inline]
+    pub fn is_playing(&self) -> ALResult<bool> {
+        Ok(self.state()? == ALSourceState::Playing)
     }
 
     impl_simple_property!(get_gain, set_gain, gain, f32, ALfloat, AL_GAIN);

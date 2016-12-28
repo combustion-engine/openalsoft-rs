@@ -49,6 +49,22 @@ impl ALState {
         Ok(res)
     }
 
+    pub fn get_float(param: ALenum) -> ALResult<ALfloat> {
+        let res = unsafe { alGetFloat(param) };
+
+        check_al_errors!();
+
+        Ok(res)
+    }
+
+    pub fn get_double(param: ALenum) -> ALResult<ALdouble> {
+        let res = unsafe { alGetDouble(param) };
+
+        check_al_errors!();
+
+        Ok(res)
+    }
+
     pub fn get_enum(name: &str) -> ALResult<ALenum> {
         let c_str = CString::new(name)?;
 

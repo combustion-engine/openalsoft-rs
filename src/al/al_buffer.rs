@@ -10,6 +10,7 @@ use super::al_format::*;
 
 use super::ALObject;
 
+#[derive(PartialEq, Eq)]
 pub struct ALBuffer(ALuint, Cell<ALFormat>, Cell<usize>);
 
 impl_simple_alobject!(ALBuffer, alIsBuffer, "ALBuffer");

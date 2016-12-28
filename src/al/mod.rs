@@ -30,6 +30,7 @@ pub mod al_source_3d;
 pub mod al_listener;
 pub mod al_state;
 pub mod al_format;
+pub mod al_distance_model;
 
 pub use self::al_device::*;
 pub use self::al_context::*;
@@ -39,3 +40,4 @@ pub use self::al_source_3d::*;
 pub use self::al_listener::*;
 pub use self::al_state::*;
 pub use self::al_format::*;
+pub use self::al_distance_model::*;

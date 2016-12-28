@@ -6,32 +6,12 @@ use std::sync::Arc;
 use nalgebra::*;
 
 use super::al_error::*;
+use super::al_state::*;
 use super::al_device::*;
 use super::al_context::*;
 use super::al_source::*;
 use super::al_source_3d::*;
-
-pub enum ALDistanceModel {
-    InverseDistance,
-    InverseDistanceClamped,
-    LinearDistance,
-    LinearDistanceClamped,
-    ExponentDistance,
-    ExponentDistanceClamped,
-}
-
-impl ALDistanceModel {
-    pub fn to_alenum(&self) -> ALenum {
-        match *self {
-            ALDistanceModel::InverseDistance => AL_INVERSE_DISTANCE,
-            ALDistanceModel::InverseDistanceClamped => AL_INVERSE_DISTANCE_CLAMPED,
-            ALDistanceModel::LinearDistance => AL_LINEAR_DISTANCE,
-            ALDistanceModel::LinearDistanceClamped => AL_LINEAR_DISTANCE_CLAMPED,
-            ALDistanceModel::ExponentDistance => AL_EXPONENT_DISTANCE,
-            ALDistanceModel::ExponentDistanceClamped => AL_EXPONENT_DISTANCE_CLAMPED,
-        }
-    }
-}
+use super::al_distance_model::*;
 
 pub struct ALListener {
     context: Arc<ALContext>,
@@ -53,13 +33,42 @@ impl ALListener {
     pub fn device(&self) -> Arc<ALDevice> { self.context.device() }
 
     pub fn set_distance_model(&self, model: Option<ALDistanceModel>) -> ALResult<()> {
-        unsafe {
-            alDistanceModel(model.map_or(AL_NONE, |m| m.to_alenum()));
-        }
+        unsafe { alDistanceModel(model.map_or(AL_NONE, |m| m.to_alenum())); }
 
         check_al_errors!();
 
         Ok(())
+    }
+
+    #[inline]
+    pub fn get_distance_model(&self) -> ALResult<ALDistanceModel> {
+        ALDistanceModel::from_alenum(ALState::get_integer(AL_DISTANCE_MODEL)?)
+    }
+
+    pub fn set_doppler_factor(&self, factor: ALfloat) -> ALResult<()> {
+        unsafe { alDopplerFactor(factor); }
+
+        check_al_errors!();
+
+        Ok(())
+    }
+
+    #[inline]
+    pub fn get_doppler_factor(&self) -> ALResult<ALfloat> {
+        ALState::get_float(AL_DOPPLER_FACTOR)
+    }
+
+    pub fn set_speed_of_sound(&self, value: ALfloat) -> ALResult<()> {
+        unsafe { alSpeedOfSound(value); }
+
+        check_al_errors!();
+
+        Ok(())
+    }
+
+    #[inline]
+    pub fn get_speed_of_sound(&self) -> ALResult<ALfloat> {
+        ALState::get_float(AL_SPEED_OF_SOUND)
     }
 
     pub fn set_gain(&self, gain: ALfloat) -> ALResult<()> {

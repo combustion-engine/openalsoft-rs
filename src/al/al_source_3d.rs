@@ -8,6 +8,7 @@ use std::ops::{Deref, DerefMut};
 use super::al_error::*;
 use super::al_source::*;
 use super::al_listener::*;
+use super::al_distance_model::*;
 
 use super::ALObject;
 
