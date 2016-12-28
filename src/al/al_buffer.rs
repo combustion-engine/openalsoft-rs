@@ -25,6 +25,30 @@ impl ALBuffer {
         Ok(Arc::new(ALBuffer(buffer, Cell::new(ALFormat::_Uninitialized), Cell::new(0))))
     }
 
+    pub fn from_elements<T>(data: &Vec<T>, format: ALFormat) -> ALResult<Arc<ALBuffer>> {
+        let buffer = ALBuffer::new()?;
+
+        buffer.buffer_elements(data, format)?;
+
+        Ok(buffer)
+    }
+
+    pub fn from_slice<T>(data: &[T], format: ALFormat) -> ALResult<Arc<ALBuffer>> {
+        let buffer = ALBuffer::new()?;
+
+        buffer.buffer_slice(data, format)?;
+
+        Ok(buffer)
+    }
+
+    pub unsafe fn from_raw(data: *const c_void, size: usize, format: ALFormat) -> ALResult<Arc<ALBuffer>> {
+        let buffer = ALBuffer::new()?;
+
+        buffer.buffer_raw(data, size, format)?;
+
+        Ok(buffer)
+    }
+
     /// Returns the last number of bytes buffered
     #[inline(always)]
     pub fn num_bytes(&self) -> usize { self.2.get() }
