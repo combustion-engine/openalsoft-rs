@@ -1,6 +1,5 @@
 use als::all::*;
 
-use std::ptr;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -9,6 +8,28 @@ use nalgebra::*;
 use super::al_error::*;
 use super::al_device::*;
 use super::al_context::*;
+
+pub enum ALDistanceModel {
+    InverseDistance,
+    InverseDistanceClamped,
+    LinearDistance,
+    LinearDistanceClamped,
+    ExponentDistance,
+    ExponentDistanceClamped,
+}
+
+impl ALDistanceModel {
+    pub fn to_alenum(&self) -> ALenum {
+        match *self {
+            ALDistanceModel::InverseDistance => AL_INVERSE_DISTANCE,
+            ALDistanceModel::InverseDistanceClamped => AL_INVERSE_DISTANCE_CLAMPED,
+            ALDistanceModel::LinearDistance => AL_LINEAR_DISTANCE,
+            ALDistanceModel::LinearDistanceClamped => AL_LINEAR_DISTANCE_CLAMPED,
+            ALDistanceModel::ExponentDistance => AL_EXPONENT_DISTANCE,
+            ALDistanceModel::ExponentDistanceClamped => AL_EXPONENT_DISTANCE_CLAMPED,
+        }
+    }
+}
 
 pub struct ALListener {
     device: Arc<ALDevice>,
@@ -32,6 +53,16 @@ impl Deref for ALListener {
 }
 
 impl ALListener {
+    pub fn set_distance_model(&self, model: Option<ALDistanceModel>) -> ALResult<()> {
+        unsafe {
+            alDistanceModel(model.map_or(AL_NONE, |m| m.to_alenum()));
+        }
+
+        check_al_errors!();
+
+        Ok(())
+    }
+
     pub fn set_gain(&self, gain: ALfloat) -> ALResult<()> {
         unsafe { alListenerf(AL_GAIN, gain); }
 

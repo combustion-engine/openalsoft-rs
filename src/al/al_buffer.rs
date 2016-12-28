@@ -1,127 +1,61 @@
 use als::all::*;
 
 use std::mem;
-use std::ptr;
+use std::sync::Arc;
 use std::os::raw::c_void;
+use std::cell::Cell;
 
 use super::al_error::*;
-use super::al_device::*;
+use super::al_format::*;
+
 use super::ALObject;
 
-pub struct ALBuffer(ALuint, ALFormat, usize);
+pub struct ALBuffer(ALuint, Cell<ALFormat>, Cell<usize>);
 
 impl_simple_alobject!(ALBuffer, alIsBuffer, "ALBuffer");
 
-pub type ALSampleRate = u32;
-
-#[derive(Debug, Copy, Clone)]
-pub enum ALFormat {
-    Unsupported,
-    Mono8(ALSampleRate),
-    Mono16(ALSampleRate),
-    Stereo8(ALSampleRate),
-    Stereo16(ALSampleRate),
-    MonoFloat32(ALSampleRate),
-    StereoFloat32(ALSampleRate),
-    #[doc(hidden)]
-    _Uninitialized,
-}
-
-impl ALFormat {
-    pub fn from_parts(bits: usize, channels: usize, srate: ALSampleRate) -> ALFormat {
-        match channels {
-            1 => {
-                match bits {
-                    8 => ALFormat::Mono8(srate),
-                    16 => ALFormat::Mono16(srate),
-                    32 => ALFormat::MonoFloat32(srate),
-                    _ => ALFormat::Unsupported,
-                }
-            },
-            2 => {
-                match bits {
-                    8 => ALFormat::Stereo8(srate),
-                    16 => ALFormat::Stereo16(srate),
-                    32 => ALFormat::StereoFloat32(srate),
-                    _ => ALFormat::Unsupported,
-                }
-            }
-            _ => ALFormat::Unsupported,
-        }
-    }
-
-    pub fn bits(&self) -> Option<usize> {
-        match *self {
-            ALFormat::Mono8(_) | ALFormat::Stereo8(_) => Some(8),
-            ALFormat::Mono16(_) | ALFormat::Stereo16(_) => Some(16),
-            ALFormat::MonoFloat32(_) | ALFormat::StereoFloat32(_) => Some(32),
-            _ => None,
-        }
-    }
-
-    pub fn sample_rate(&self) -> Option<ALSampleRate> {
-        match *self {
-            ALFormat::Mono8(srate) => Some(srate),
-            ALFormat::Mono16(srate) => Some(srate),
-            ALFormat::Stereo8(srate) => Some(srate),
-            ALFormat::Stereo16(srate) => Some(srate),
-            ALFormat::MonoFloat32(srate) => Some(srate),
-            ALFormat::StereoFloat32(srate) => Some(srate),
-            _ => None,
-        }
-    }
-
-    pub fn channels(&self) -> Option<usize> {
-        match *self {
-            ALFormat::Mono8(_) | ALFormat::Mono16(_) | ALFormat::MonoFloat32(_) => Some(1),
-            ALFormat::Stereo8(_) | ALFormat::Stereo16(_) | ALFormat::StereoFloat32(_) => Some(2),
-            _ => None,
-        }
-    }
-}
-
 impl ALBuffer {
-    pub fn new() -> ALResult<ALBuffer> {
+    pub fn new() -> ALResult<Arc<ALBuffer>> {
         let mut buffer: ALuint = 0;
 
         unsafe { alGenBuffers(1, &mut buffer as *mut _); }
 
         check_al_errors!();
 
-        Ok(ALBuffer(buffer, ALFormat::_Uninitialized, 0))
+        Ok(Arc::new(ALBuffer(buffer, Cell::new(ALFormat::_Uninitialized), Cell::new(0))))
     }
 
     /// Returns the last number of bytes buffered
     #[inline(always)]
-    pub fn num_bytes(&self) -> usize { self.2 }
+    pub fn num_bytes(&self) -> usize { self.2.get() }
 
     /// Returns the last number of elements `T` buffered
     ///
     /// It's up to you to keep track of type `T`, as `ALBuffer` really only stores the number of bytes, not elements, buffered.
     #[inline(always)]
-    pub fn num_elements<T>(&self) -> usize { self.2 / mem::size_of::<T>() }
+    pub fn num_elements<T>(&self) -> usize { self.2.get() / mem::size_of::<T>() }
 
 
     /// Buffer a `Vec<T>` of elements `T` to the `ALBuffer`
     #[inline]
-    pub fn buffer_elements<T>(&mut self, data: &Vec<T>, format: ALFormat) -> ALResult<()> {
+    pub fn buffer_elements<T>(&self, data: &Vec<T>, format: ALFormat) -> ALResult<()> {
         unsafe { self.buffer_raw(data.as_ptr() as *const c_void, data.len() * mem::size_of::<T>(), format) }
     }
 
     /// Buffer a slice of `T` to the `ALBuffer`
     #[inline]
-    pub fn buffer_slice<T>(&mut self, data: &[T], format: ALFormat) -> ALResult<()> {
+    pub fn buffer_slice<T>(&self, data: &[T], format: ALFormat) -> ALResult<()> {
         unsafe { self.buffer_raw(data.as_ptr() as *const c_void, data.len() * mem::size_of::<T>(), format) }
     }
 
     /// Buffer raw data to the `ALBuffer`
-    pub unsafe fn buffer_raw(&mut self, data: *const c_void, size: usize, format: ALFormat) -> ALResult<()> {
+    pub unsafe fn buffer_raw(&self, data: *const c_void, size: usize, format: ALFormat) -> ALResult<()> {
         if data.is_null() || size == 0 {
             Err(ALError::InvalidValue)
         } else {
             try!(self.check());
 
-            let (format, srate) = match format {
+            let (al_format, srate) = match format {
                 ALFormat::Mono8(srate) => (AL_FORMAT_MONO8, srate),
                 ALFormat::Mono16(srate) => (AL_FORMAT_MONO16, srate),
                 ALFormat::Stereo8(srate) => (AL_FORMAT_STEREO8, srate),
@@ -134,11 +68,12 @@ impl ALBuffer {
                 }
             };
 
-            alBufferData(self.0, format, data, size as ALsizei, srate as ALsizei);
+            alBufferData(self.0, al_format, data, size as ALsizei, srate as ALsizei);
 
             check_al_errors!();
 
-            self.2 = size;
+            self.1.set(format);
+            self.2.set(size);
 
             Ok(())
         }

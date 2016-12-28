@@ -1,17 +1,15 @@
 use als::all::*;
 
 use std::mem;
-use std::ptr;
 use std::sync::Arc;
-use std::ops::Deref;
-use std::os::raw::c_void;
+use std::cell::RefCell;
 
 use super::al_error::*;
 use super::al_buffer::*;
 
 use super::ALObject;
 
-pub struct ALSource(ALuint, Vec<Arc<ALBuffer>>);
+pub struct ALSource(ALuint, RefCell<Vec<Arc<ALBuffer>>>);
 
 impl_simple_alobject!(ALSource, alIsSource, "ALSource");
 
@@ -37,23 +35,23 @@ macro_rules! impl_simple_func {
 }
 
 macro_rules! impl_simple_property {
-    ($get_name:ident, $set_name:ident, $name:ident, $t:ty, $alt:ty, $al_get_func:ident, $al_set_func:ident, $al_enum:ident) => {
+    ($get_name:ident, $set_name:ident, $name:ident, $t:ty, $alt:ty, $al_enum:ident) => {
         pub fn $get_name(&self) -> ALResult<$t> {
             try!(self.check());
 
             let mut $name: $alt = 0.0;
 
-            unsafe { $al_get_func(self.0, $al_enum, &mut $name); }
+            unsafe { alGetSourcef(self.0, $al_enum, &mut $name); }
 
             check_al_errors!();
 
             Ok($name as f32)
         }
 
-        pub fn $set_name(&mut self, $name: $t) -> ALResult<()> {
+        pub fn $set_name(&self, $name: $t) -> ALResult<()> {
             try!(self.check());
 
-            unsafe { $al_set_func(self.0, $al_enum, $name); }
+            unsafe { alSourcef(self.0, $al_enum, $name); }
 
             check_al_errors!();
 
@@ -63,59 +61,99 @@ macro_rules! impl_simple_property {
 }
 
 impl ALSource {
-    pub fn new() -> ALResult<ALSource> {
+    pub fn new() -> ALResult<Arc<ALSource>> {
         let mut source: ALuint = 0;
 
         unsafe { alGenSources(1, &mut source as *mut _); }
 
         check_al_errors!();
 
-        Ok(ALSource(source, Vec::new()))
+        Ok(Arc::new(ALSource(source, RefCell::new(Vec::new()))))
     }
 
-    pub fn set_buffer(&mut self, buffer: Arc<ALBuffer>) -> ALResult<()> {
+    pub fn set_buffer(&self, buffer: Arc<ALBuffer>) -> ALResult<Vec<Arc<ALBuffer>>> {
         try!(self.check());
 
-        unsafe { alSourcei(self.0, AL_BUFFER, buffer.raw() as ALint); }
+        unsafe {
+            alSourcei(self.0, AL_SOURCE_TYPE, AL_STATIC);
+
+            alSourcei(self.0, AL_BUFFER, buffer.raw() as ALint);
+        }
 
         check_al_errors!();
 
-        self.1.push(buffer);
+        let mut buffers = self.1.borrow_mut();
 
-        Ok(())
+        let mut new = vec![buffer];
+
+        mem::swap(&mut new, &mut *buffers);
+
+        Ok(new)
     }
 
-    pub fn queue_buffers<I: Iterator<Item = Arc<ALBuffer>>>(&mut self, buffers: I) -> ALResult<()> {
+    pub fn queue_buffers<I: Iterator<Item = Arc<ALBuffer>>>(&self, buffer_iter: I) -> ALResult<()> {
         try!(self.check());
 
-        for buffer in buffers {
+        let mut buffers = self.1.borrow_mut();
+
+        for buffer in buffer_iter {
             unsafe { alSourceQueueBuffers(self.0, 1, &buffer.raw() as *const _); }
 
             check_al_errors!();
 
-            self.1.push(buffer);
+            buffers.push(buffer);
         }
 
         Ok(())
     }
 
-    pub fn unqueue_all_buffers(&mut self) -> ALResult<Vec<Arc<ALBuffer>>> {
+    pub fn unqueue_all_buffers(&self) -> ALResult<Vec<Arc<ALBuffer>>> {
         try!(self.check());
 
-        for buffer in &self.1 {
+        let mut buffers = self.1.borrow_mut();
+
+        for buffer in &*buffers {
             unsafe { alSourceUnqueueBuffers(self.0, 1, &mut buffer.raw() as *mut _); }
 
             check_al_errors!();
         }
 
-        let mut empty = Vec::new();
+        let mut new = Vec::new();
 
-        mem::swap(&mut empty, &mut self.1);
+        mem::swap(&mut new, &mut *buffers);
 
-        Ok(empty)
+        Ok(new)
     }
 
-    pub fn set_looping(&mut self, looping: bool) -> ALResult<()> {
+    pub fn buffers(&self) -> Vec<Arc<ALBuffer>> {
+        self.1.borrow().clone()
+    }
+
+    pub fn buffers_queued(&self) -> ALResult<usize> {
+        try!(self.check());
+
+        let mut count = 0;
+
+        unsafe { alGetSourcei(self.0, AL_BUFFERS_QUEUED, &mut count); }
+
+        check_al_errors!();
+
+        Ok(count as usize)
+    }
+
+    pub fn buffers_processed(&self) -> ALResult<usize> {
+        try!(self.check());
+
+        let mut count = 0;
+
+        unsafe { alGetSourcei(self.0, AL_BUFFERS_PROCESSED, &mut count); }
+
+        check_al_errors!();
+
+        Ok(count as usize)
+    }
+
+    pub fn set_looping(&self, looping: bool) -> ALResult<()> {
         try!(self.check());
 
         unsafe { alSourcei(self.0, AL_LOOPING, if looping { AL_TRUE } else { AL_FALSE } as ALint); }
@@ -130,8 +168,24 @@ impl ALSource {
     impl_simple_func!(stop, alSourceStop);
     impl_simple_func!(rewind, alSourceRewind);
 
-    impl_simple_property!(get_gain, set_gain, gain, f32, ALfloat, alGetSourcef, alSourcef, AL_GAIN);
-    impl_simple_property!(get_pitch, set_pitch, pitch, f32, ALfloat, alGetSourcef, alSourcef, AL_PITCH);
+    pub fn state(&self) -> ALResult<ALSourceState> {
+        try!(self.check());
+
+        let mut state = 0;
+
+        unsafe { alGetSourcei(self.0, AL_SOURCE_STATE, &mut state); }
+
+        Ok(match state {
+            AL_INITIAL => ALSourceState::Initial,
+            AL_PAUSED => ALSourceState::Paused,
+            AL_PLAYING => ALSourceState::Playing,
+            AL_STOPPED => ALSourceState::Stopped,
+            _ => return Err(ALError::InvalidValue)
+        })
+    }
+
+    impl_simple_property!(get_gain, set_gain, gain, f32, ALfloat, AL_GAIN);
+    impl_simple_property!(get_pitch, set_pitch, pitch, f32, ALfloat, AL_PITCH);
 }
 
 impl Drop for ALSource {

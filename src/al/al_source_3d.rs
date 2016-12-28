@@ -2,36 +2,65 @@ use als::all::*;
 
 use nalgebra::*;
 
-use std::mem;
-use std::ptr;
 use std::sync::Arc;
 use std::ops::{Deref, DerefMut};
-use std::os::raw::c_void;
 
 use super::al_error::*;
 use super::al_source::*;
+use super::al_listener::*;
 
 use super::ALObject;
 
-pub struct ALSource3D(ALSource);
+/// `ALSource3D` is an extension of the normal `ALSource` to provide 3D audio manipulations.
+pub struct ALSource3D(Arc<ALSource>);
+
+macro_rules! impl_property {
+    ($get_name:ident, $set_name:ident, $name:ident, $t:ident, $alt:ty, $al_enum:ident) => {
+        pub fn $get_name(&self) -> ALResult<$t<f32>> {
+            try!(self.check());
+
+            let mut $name = $t::new(0.0, 0.0, 0.0);
+
+            unsafe { alGetSourcefv(self.raw(), $al_enum, &mut $name as *mut _ as *mut $alt); }
+
+            check_al_errors!();
+
+            Ok($name)
+        }
+
+        pub fn $set_name(&self, $name: $t<f32>) -> ALResult<()> {
+            try!(self.check());
+
+            unsafe { alSourcefv(self.raw(), $al_enum, &$name as *const _ as *const $alt); }
+
+            check_al_errors!();
+
+            Ok(())
+        }
+    }
+}
 
 impl ALSource3D {
     #[inline]
-    pub fn new() -> ALResult<ALSource3D> {
+    pub fn new() -> ALResult<Arc<ALSource3D>> {
         Ok(ALSource3D::from_source(ALSource::new()?)?)
     }
 
-    pub fn from_source(source: ALSource) -> ALResult<ALSource3D> {
+    /// Convert a normal `ALSource` into an `ALSource3D`,
+    /// simultaneously enabling 3D relative positioning of the source.
+    pub fn from_source(source: Arc<ALSource>) -> ALResult<Arc<ALSource3D>> {
         let source = ALSource3D(source);
 
         unsafe { alSourcei(source.raw(), AL_SOURCE_RELATIVE, AL_TRUE as ALint); }
 
         check_al_errors!();
 
-        Ok(source)
+        Ok(Arc::new(source))
     }
 
-    pub fn into_source(self) -> ALResult<ALSource> {
+    /// Convert an `ALSource3D` back into an `ALSource`,
+    /// simultaneously disabling 3D relative positioning of the source.
+    pub fn into_source(self) -> ALResult<Arc<ALSource>> {
         unsafe { alSourcei(self.raw(), AL_SOURCE_RELATIVE, AL_FALSE as ALint); }
 
         check_al_errors!();
@@ -39,30 +68,17 @@ impl ALSource3D {
         Ok(self.0)
     }
 
-    pub fn set_position(&mut self, pos: Point3<f32>) -> ALResult<()> {
+    impl_property!(get_position, set_position, position, Point3, ALfloat, AL_POSITION);
+    impl_property!(get_velocity, set_velocity, velocity, Vector3, ALfloat, AL_VELOCITY);
+    impl_property!(get_direction, set_direction, direction, Vector3, ALfloat, AL_DIRECTION);
+
+    /// Set the distance model of this particular source
+    ///
+    /// **NOTE**: `alEnable(AL_SOURCE_DISTANCE_MODEL)` must be called before this.
+    pub fn set_distance_model(&self, model: Option<ALDistanceModel>) -> ALResult<()> {
         try!(self.check());
 
-        unsafe { alSource3f(self.raw(), AL_POSITION, pos.x as ALfloat, pos.y as ALfloat, pos.z as ALfloat); }
-
-        check_al_errors!();
-
-        Ok(())
-    }
-
-    pub fn set_velocity(&mut self, velocity: Vector3<f32>) -> ALResult<()> {
-        try!(self.check());
-
-        unsafe { alSource3f(self.raw(), AL_VELOCITY, velocity.x as ALfloat, velocity.y as ALfloat, velocity.z as ALfloat) }
-
-        check_al_errors!();
-
-        Ok(())
-    }
-
-    pub fn set_direction(&mut self, direction: Vector3<f32>) -> ALResult<()> {
-        try!(self.check());
-
-        unsafe { alSource3f(self.raw(), AL_DIRECTION, direction.x as ALfloat, direction.y as ALfloat, direction.z as ALfloat) }
+        unsafe { alSourcei(self.raw(), AL_DISTANCE_MODEL, model.map_or(AL_NONE, |m| m.to_alenum())); }
 
         check_al_errors!();
 
@@ -71,7 +87,7 @@ impl ALSource3D {
 }
 
 impl Deref for ALSource3D {
-    type Target = ALSource;
+    type Target = Arc<ALSource>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target { &self.0 }
