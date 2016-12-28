@@ -3,6 +3,7 @@ extern crate pitch_calc as pitch;
 #[macro_use]
 extern crate openal;
 extern crate nalgebra;
+extern crate time_calc as time;
 
 use als::all::*;
 use openal::*;
@@ -13,12 +14,13 @@ use std::sync::Arc;
 
 use pitch::*;
 use nalgebra::*;
+use time::*;
 
-fn binaural_beat(mut data: &mut [ALfloat], g: ALdouble, srate: ALuint, freq: ALuint) {
+fn sine_wave(mut data: &mut [ALfloat], g: ALdouble, srate: ALuint, freq: ALuint) {
     for (i, d) in data.iter_mut().enumerate() {
         let mut v = 0.0;
 
-        let smps_per_cycle = srate as f64 / (freq) as f64;
+        let smps_per_cycle = srate as f64 / freq as f64;
 
         v += (i as f64 / smps_per_cycle * 2.0 * ::std::f64::consts::PI).sin();
 
@@ -33,25 +35,27 @@ fn binaural_beat(mut data: &mut [ALfloat], g: ALdouble, srate: ALuint, freq: ALu
 }
 
 unsafe fn create_wave(freq: ALuint, srate: ALuint, time: f32) -> ALResult<Arc<ALBuffer>> {
-    let mut data = vec![0.0 as ALfloat; (srate as f32 * time) as usize / 2];
+    let mut data = vec![0.0 as ALfloat; (srate as f32 * time) as usize];
 
-    binaural_beat(&mut data, 1.0, srate, freq);
+    sine_wave(&mut data, 1.0, srate, freq);
 
-    let mut buffer: ALBuffer = ALBuffer::new()?;
+    let mut buffer = ALBuffer::new()?;
 
-    buffer.buffer_elements(&data, ALFormat::MonoFloat32(srate))?;
+    buffer.buffer_elements(&data, ALFormat::StereoFloat32(srate))?;
 
-    Ok(Arc::new(buffer))
+    Ok(buffer)
 }
 
 unsafe fn run() -> ALResult<()> {
     println!("Opening default device...");
-    let mut device: ALDevice = ALDevice::open()?;
+    let device = ALDevice::open(None)?;
 
     println!("Creating OpenAL context...");
-    let mut ctx: ALContext = device.create_context()?;
+    let ctx = device.create_context()?;
 
-    ctx.make_current()?;
+    let listener = ALListener::new(device.clone(), ctx.clone());
+
+    listener.set_thread_context()?;
 
     let name = if device.extension_present("ALC_ENUMERATE_ALL_EXT")? {
         device.get_string(ALC_ALL_DEVICES_SPECIFIER)
@@ -69,40 +73,52 @@ unsafe fn run() -> ALResult<()> {
 
     println!("Device sample rate: {}", device_srate);
 
-    let mut source: ALSource3D = ALSource3D::new()?;
+    let mut source = ALSource3D::new()?;
 
-    let spider = [
-        Letter::G,
-        Letter::C,
-        Letter::C,
-        Letter::D,
-        Letter::E,
-        Letter::E,
-        Letter::E,
-        Letter::D,
-        Letter::C,
-        Letter::D,
-        Letter::E,
-        Letter::C,
-        Letter::E,
-        Letter::E,
-        Letter::F,
-        Letter::G,
-    ];
+    let notes = {
+        use Letter::*;
 
-    let speed: f32 = 0.5;
+        [
+            (F, 4, 1.0),
+            (D, 4, 1.0),
+            (C, 4, 1.0),
+            (Bb, 3, 1.0),
+            (C, 4, 1.0),
+            (D, 4, 1.0),
+            (F, 4, 1.0),
+            (D, 4, 1.0),
+            (C, 4, 1.0),
+            (Bb, 3, 1.0),
+            (C, 4, 0.5),
+            (D, 4, 0.5),
+            (C, 4, 0.5),
+            (D, 4, 0.5),
+            (F, 4, 1.0),
+            (D, 4, 1.0),
+            (F, 4, 1.0),
+            (G, 4, 1.0),
+            (D, 4, 1.0),
+            (G, 4, 1.0),
+            (F, 4, 1.0),
+            (D, 4, 1.0),
+            (C, 4, 1.0),
+            (Bb, 3, 1.0),
+        ]
+    };
 
-    let spider_buffers = spider.iter()
-                               .map(|l| hz_from_letter_octave(*l, 4))
-                               .map(|f| create_wave(f as u32, device_srate as ALSampleRate, speed).unwrap());
+    let speed: f32 = 1.1;
+
+    let buffers = notes.iter()
+                       .map(|los| (hz_from_letter_octave(los.0, los.1 - 1), los.2 / speed))
+                       .map(|fs| create_wave(fs.0 as u32, device_srate as ALSampleRate, fs.1).unwrap());
 
 
     source.set_position(Point3::new(0.0, 0.0, 0.0))?;
-    source.queue_buffers(spider_buffers)?;
-    source.set_looping(true)?;
+    source.queue_buffers(buffers)?;
+    source.set_looping(false)?;
     source.play()?;
 
-    sleep(Duration::from_millis((spider.len() as f64 * speed as f64 * 5000.0) as u64));
+    sleep(Duration::from_millis((notes.len() as f64 * speed as f64 * 500.0) as u64));
 
     source.stop()?;
 
