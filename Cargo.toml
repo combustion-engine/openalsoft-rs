@@ -5,7 +5,9 @@ version = "0.1.0"
 
 [dependencies]
 lazy_static = "0.2.2"
-nalgebra = "0.10.1"
+
+[dependencies.nalgebra]
+path = "../nalgebra"
 
 [dependencies.openalsoft-sys]
 path = "../openalsoft-sys"
