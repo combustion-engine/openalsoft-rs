@@ -39,5 +39,5 @@ pub use self::al_source::{ALSource, ALSourceKind, ALSourceState};
 pub use self::al_source_3d::ALSource3D;
 pub use self::al_listener::{ALListener, ALListenerArc};
 pub use self::al_state::ALState;
-pub use self::al_format::{ALFormat, ALSampleRate};
+pub use self::al_format::{ALFormat, ALSampleRate, ALBitDepth, ALSampleType, ALChannels};
 pub use self::al_distance_model::ALDistanceModel;
