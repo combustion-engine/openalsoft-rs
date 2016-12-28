@@ -39,7 +39,7 @@ unsafe fn create_wave(freq: ALuint, srate: ALuint, time: f32) -> ALResult<Arc<AL
 
     sine_wave(&mut data, 1.0, srate, freq);
 
-    let mut buffer = ALBuffer::new()?;
+    let buffer = ALBuffer::new()?;
 
     buffer.buffer_elements(&data, ALFormat::StereoFloat32(srate))?;
 
@@ -50,10 +50,8 @@ unsafe fn run() -> ALResult<()> {
     println!("Opening default device...");
     let device = ALDevice::open(None)?;
 
-    println!("Creating OpenAL context...");
-    let ctx = device.create_context()?;
-
-    let listener = ALListener::new(device.clone(), ctx.clone());
+    println!("Creating OpenAL listener...");
+    let listener = device.create_listener()?;
 
     listener.set_thread_context()?;
 
@@ -65,15 +63,11 @@ unsafe fn run() -> ALResult<()> {
 
     println!("Running {}", name);
 
-    let mut device_srate: ALint = 0;
-
-    alcGetIntegerv(device.raw(), ALC_FREQUENCY, 1, &mut device_srate as *mut _);
-
-    check_alc_errors!();
+    let device_srate = device.get_integer(ALC_FREQUENCY)?;
 
     println!("Device sample rate: {}", device_srate);
 
-    let mut source = ALSource3D::new()?;
+    let source = listener.new_3d_source()?;
 
     let notes = {
         use Letter::*;
