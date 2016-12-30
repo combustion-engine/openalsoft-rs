@@ -4,6 +4,8 @@
 //! via the `new_checked` constructor function, or after creation and manual property setting via the `check` member function function.
 //!
 //! All checks and bounds have been taken from http://kcat.strangesoft.net/misc-downloads/Effects%20Extension%20Guide.pdf
+use als::efx::EFXEAXREVERBPROPERTIES;
+use als::all::*;
 
 use super::al_error::*;
 
@@ -186,6 +188,66 @@ efx_struct! {
     }
 }
 
+impl From<EFXEAXREVERBPROPERTIES> for ALEfxEAXReverbProperties {
+    fn from(efx: EFXEAXREVERBPROPERTIES) -> ALEfxEAXReverbProperties {
+        ALEfxEAXReverbProperties {
+            density: efx.flDensity,
+            diffusion: efx.flDiffusion,
+            gain: efx.flGain,
+            gainhf: efx.flGainHF,
+            gainlf: efx.flGainLF,
+            decay_time: efx.flDecayTime,
+            decay_hfratio: efx.flDecayHFRatio,
+            decay_lfratio: efx.flDecayLFRatio,
+            reflections_gain: efx.flReflectionsGain,
+            reflections_delay: efx.flReflectionsDelay,
+            reflections_pan: (&efx.flReflectionsPan).into(),
+            late_reverb_gain: efx.flLateReverbGain,
+            late_reverb_delay: efx.flLateReverbDelay,
+            late_reverb_pan: (&efx.flLateReverbPan).into(),
+            echo_time: efx.flEchoTime,
+            echo_depth: efx.flEchoDepth,
+            modulation_time: efx.flModulationTime,
+            modulation_depth: efx.flModulationDepth,
+            air_absorption_gainhf: efx.flAirAbsorptionGainHF,
+            hfreference: efx.flHFReference,
+            lfreference: efx.flLFReference,
+            room_rolloff_factor: efx.flRoomRolloffFactor,
+            decayhf_limit: efx.iDecayHFLimit as ALboolean == AL_TRUE,
+        }
+    }
+}
+
+impl From<ALEfxEAXReverbProperties> for EFXEAXREVERBPROPERTIES {
+    fn from(efx: ALEfxEAXReverbProperties) -> EFXEAXREVERBPROPERTIES {
+        EFXEAXREVERBPROPERTIES {
+            flDensity: efx.density,
+            flDiffusion: efx.diffusion,
+            flGain: efx.gain,
+            flGainHF: efx.gainhf,
+            flGainLF: efx.gainlf,
+            flDecayTime: efx.decay_time,
+            flDecayHFRatio: efx.decay_hfratio,
+            flDecayLFRatio: efx.decay_lfratio,
+            flReflectionsGain: efx.reflections_gain,
+            flReflectionsDelay: efx.reflections_delay,
+            flReflectionsPan: efx.reflections_pan.as_ref().clone(),
+            flLateReverbGain: efx.late_reverb_gain,
+            flLateReverbDelay: efx.late_reverb_delay,
+            flLateReverbPan: efx.late_reverb_pan.as_ref().clone(),
+            flEchoTime: efx.echo_time,
+            flEchoDepth: efx.echo_depth,
+            flModulationTime: efx.modulation_time,
+            flModulationDepth: efx.modulation_depth,
+            flAirAbsorptionGainHF: efx.air_absorption_gainhf,
+            flHFReference: efx.hfreference,
+            flLFReference: efx.lfreference,
+            flRoomRolloffFactor: efx.room_rolloff_factor,
+            iDecayHFLimit: if efx.decayhf_limit { AL_TRUE } else { AL_FALSE } as ::std::os::raw::c_int,
+        }
+    }
+}
+
 efx_struct! {
     /// Properties used for the standard Reverb effect
     pub struct ALEfxReverbProperties {
@@ -214,6 +276,61 @@ efx_struct! {
         /// [0.0, 10.0]
         pub room_rolloff_factor: f32    = { 0.0 }   in [0.0, 10.0],
         pub decayhf_limit: bool         = { true },
+    }
+}
+
+impl From<ALEfxReverbProperties> for ALEfxEAXReverbProperties {
+    fn from(efx: ALEfxReverbProperties) -> ALEfxEAXReverbProperties {
+        ALEfxEAXReverbProperties {
+            density: efx.density,
+            diffusion: efx.diffusion,
+            gain: efx.gain,
+            gainhf: efx.gainhf,
+            decay_time: efx.decay_time,
+            decay_hfratio: efx.decay_hfratio,
+            reflections_gain: efx.reflections_gain,
+            reflections_delay: efx.reflections_delay,
+            late_reverb_gain: efx.late_reverb_gain,
+            late_reverb_delay: efx.late_reverb_delay,
+            air_absorption_gainhf: efx.air_absorption_gainhf,
+            room_rolloff_factor: efx.room_rolloff_factor,
+            decayhf_limit: efx.decayhf_limit,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<ALEfxEAXReverbProperties> for ALEfxReverbProperties {
+    fn from(efx: ALEfxEAXReverbProperties) -> ALEfxReverbProperties {
+        ALEfxReverbProperties {
+            density: efx.density,
+            diffusion: efx.diffusion,
+            gain: efx.gain,
+            gainhf: efx.gainhf,
+            decay_time: efx.decay_time,
+            decay_hfratio: efx.decay_hfratio,
+            reflections_gain: efx.reflections_gain,
+            reflections_delay: efx.reflections_delay,
+            late_reverb_gain: efx.late_reverb_gain,
+            late_reverb_delay: efx.late_reverb_delay,
+            air_absorption_gainhf: efx.air_absorption_gainhf,
+            room_rolloff_factor: efx.room_rolloff_factor,
+            decayhf_limit: efx.decayhf_limit,
+        }
+    }
+}
+
+impl From<EFXEAXREVERBPROPERTIES> for ALEfxReverbProperties {
+    #[inline(always)]
+    fn from(efx: EFXEAXREVERBPROPERTIES) -> ALEfxReverbProperties {
+        ALEfxEAXReverbProperties::from(efx).into()
+    }
+}
+
+impl From<ALEfxReverbProperties> for EFXEAXREVERBPROPERTIES {
+    #[inline(always)]
+    fn from(efx: ALEfxReverbProperties) -> EFXEAXREVERBPROPERTIES {
+        ALEfxEAXReverbProperties::from(efx).into()
     }
 }
 
