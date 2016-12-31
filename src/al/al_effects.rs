@@ -12,7 +12,7 @@ use super::al_error::*;
 use nalgebra::*;
 
 /// Types of effects supported by OpenAL Soft
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEffectType {
     Null,
     Reverb,
@@ -29,7 +29,7 @@ pub enum ALEffectType {
 }
 
 /// Types of filters supported by OpenAL Soft
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALFilterType {
     Null,
     Lowpass,
@@ -41,15 +41,21 @@ pub enum ALFilterType {
 macro_rules! efx_struct {
     {$(#[$struct_attr:meta])* pub struct $name:ident { $( $(#[$field_attr:meta])* pub $field:ident: $t:ty = { $default:expr } $(in [$min:expr, $max:expr])* $(with $check:expr)*),*, } } => {
         $(#[$struct_attr])*
+        #[derive(Debug, Serialize, Deserialize)]
         pub struct $name {
-            $($(#[$field_attr])* pub $field: $t),*
+            $(
+                $(#[$field_attr])*
+                pub $field: $t,
+            )*
         }
 
         impl $name {
             /// Create a new structure from individual fields without checking bounds
             pub fn new($($field: $t),*) -> $name {
                 $name {
-                    $($field: $field),*
+                    $(
+                        $field: $field,
+                    )*
                 }
             }
 
@@ -71,8 +77,8 @@ macro_rules! efx_struct {
                             )*
 
                             $field
-                        }
-                    ),*
+                        },
+                    )*
                 })
             }
 
@@ -122,7 +128,9 @@ macro_rules! efx_struct {
         impl Default for $name {
             fn default() -> $name {
                 $name {
-                    $($field: $default),*
+                    $(
+                        $field: $default,
+                    )*
                 }
             }
         }
@@ -336,8 +344,11 @@ impl From<ALEfxReverbProperties> for EFXEAXREVERBPROPERTIES {
 
 /// Types of waveforms that can be used in the Chorus effect
 #[repr(u32)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEfxChorusWaveform {
+    #[serde(rename = "sinusoid")]
     Sinusoid = 0,
+    #[serde(rename = "triangle")]
     Triangle = 1,
 }
 
@@ -392,8 +403,11 @@ efx_struct! {
 
 /// Types of waveforms that can be used in the Flanger effect
 #[repr(u32)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEfxFlangerWaveform {
+    #[serde(rename = "sinusoid")]
     Sinusoid = 0,
+    #[serde(rename = "triangle")]
     Triangle = 1,
 }
 
@@ -416,9 +430,13 @@ efx_struct! {
 
 /// Directions that can be used in the Frequency Shifter effect
 #[repr(u32)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEfxFrequencyShifterDirection {
+    #[serde(rename = "down")]
     Down = 0,
+    #[serde(rename = "up")]
     Up = 1,
+    #[serde(rename = "off")]
     Off = 2,
 }
 
@@ -434,6 +452,7 @@ efx_struct! {
 
 /// Phonemes that can be used in the Vocal Morpher effect
 #[repr(u32)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEfxVocalMorpherPhoneme {
     A = 0,
     E = 1,
@@ -469,9 +488,13 @@ pub enum ALEfxVocalMorpherPhoneme {
 
 /// Types of waveforms that can be used in the Vocal Morpher effect
 #[repr(u32)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEfxVocalMorpherWaveform {
+    #[serde(rename = "sinusoid")]
     Sinusoid = 0,
+    #[serde(rename = "triangle")]
     Triangle = 1,
+    #[serde(rename = "saw")]
     Saw = 2,
 }
 
@@ -502,9 +525,13 @@ efx_struct! {
 
 /// Types of waveforms that can be used in the Ring Modulator effect
 #[repr(u32)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ALEfxRingModulatorWaveform {
+    #[serde(rename = "sinusoid")]
     Sinusoid = 0,
+    #[serde(rename = "square")]
     Square = 1,
+    #[serde(rename = "saw")]
     Saw = 2,
 }
 
