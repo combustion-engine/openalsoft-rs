@@ -3,7 +3,7 @@ use als::all::*;
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};
 
-use super::al_error::*;
+use super::error::*;
 
 // Provides safe access to the global OpenAL state.
 pub struct ALState;
@@ -66,14 +66,14 @@ impl ALState {
     }
 
     pub fn get_enum(name: &str) -> ALResult<ALenum> {
-        let c_str = CString::new(name)?;
+        let c_str = try_throw!(CString::new(name));
 
         let res = unsafe { alGetEnumValue(c_str.as_ptr()) };
 
         check_al_errors!();
 
         if res == 0 || res == -1 {
-            Err(ALError::InvalidEnum)
+            throw!(ALError::InvalidEnum)
         } else {
             Ok(res)
         }

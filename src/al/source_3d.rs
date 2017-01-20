@@ -5,10 +5,10 @@ use nalgebra::*;
 use std::sync::Arc;
 use std::ops::{Deref, DerefMut};
 
-use super::al_error::*;
-use super::al_source::*;
-use super::al_listener::*;
-use super::al_distance_model::*;
+use super::error::*;
+use super::source::*;
+use super::listener::*;
+use super::distance_model::*;
 
 use super::ALObject;
 
@@ -18,7 +18,7 @@ pub struct ALSource3D(Arc<ALSource>);
 macro_rules! impl_property {
     ($get_name:ident, $set_name:ident, $name:ident, $t:ident, $alt:ty, $al_enum:ident) => {
         pub fn $get_name(&self) -> ALResult<$t<f32>> {
-            try!(self.check());
+            try_rethrow!(self.check());
 
             let mut $name = $t::new(0.0, 0.0, 0.0);
 
@@ -30,7 +30,7 @@ macro_rules! impl_property {
         }
 
         pub fn $set_name(&self, $name: $t<f32>) -> ALResult<()> {
-            try!(self.check());
+            try_rethrow!(self.check());
 
             unsafe { alSourcefv(self.raw(), $al_enum, &$name as *const _ as *const $alt); }
 
@@ -44,7 +44,7 @@ macro_rules! impl_property {
 impl ALSource3D {
     #[inline]
     pub fn new(listener: Arc<ALListener>) -> ALResult<Arc<ALSource3D>> {
-        Ok(ALSource3D::from_source(ALSource::new(listener)?)?)
+        ALSource3D::from_source(try_rethrow!(ALSource::new(listener)))
     }
 
     /// Convert a normal `ALSource` into an `ALSource3D`,
@@ -77,7 +77,7 @@ impl ALSource3D {
     ///
     /// **NOTE**: `alEnable(AL_SOURCE_DISTANCE_MODEL)` must be called before this.
     pub fn set_distance_model(&self, model: Option<ALDistanceModel>) -> ALResult<()> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         unsafe { alSourcei(self.raw(), AL_DISTANCE_MODEL, model.map_or(AL_NONE, |m| m.to_alenum())); }
 

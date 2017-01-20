@@ -4,15 +4,15 @@ use std::mem;
 use std::sync::Arc;
 use std::cell::RefCell;
 
-use super::al_error::*;
-use super::al_buffer::*;
-use super::al_listener::*;
+use super::error::*;
+use super::buffer::*;
+use super::listener::*;
 
 use super::ALObject;
 
 pub struct ALSource(ALuint, RefCell<Vec<Arc<ALBuffer>>>, Arc<ALListener>);
 
-impl_simple_alobject!(ALSource, alIsSource, "ALSource");
+impl_simple_alobject!(simple ALSource, alIsSource);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ALSourceState {
@@ -32,7 +32,7 @@ pub enum ALSourceKind {
 macro_rules! impl_simple_func {
     ($name:ident, $al_name:ident) => {
         pub fn $name(&self) -> ALResult<()> {
-            try!(self.check());
+            try_rethrow!(self.check());
 
             unsafe { $al_name(self.0); }
 
@@ -46,7 +46,7 @@ macro_rules! impl_simple_func {
 macro_rules! impl_simple_property {
     ($get_name:ident, $set_name:ident, $name:ident, $t:ty, $alt:ty, $al_enum:ident) => {
         pub fn $get_name(&self) -> ALResult<$t> {
-            try!(self.check());
+            try_rethrow!(self.check());
 
             let mut $name: $alt = 0.0;
 
@@ -58,7 +58,7 @@ macro_rules! impl_simple_property {
         }
 
         pub fn $set_name(&self, $name: $t) -> ALResult<()> {
-            try!(self.check());
+            try_rethrow!(self.check());
 
             unsafe { alSourcef(self.0, $al_enum, $name); }
 
@@ -91,13 +91,13 @@ impl ALSource {
             AL_UNDETERMINED => ALSourceKind::Undetermined,
             AL_STATIC => ALSourceKind::Static,
             AL_STREAMING => ALSourceKind::Streaming,
-            _ => return Err(ALError::InvalidValue)
+            _ => throw!(ALError::InvalidValue)
         })
     }
 
     /// Add a buffer to the streaming queue
     pub fn queue_buffers<I: Iterator<Item = Arc<ALBuffer>>>(&self, buffer_iter: I) -> ALResult<()> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         let mut buffers = self.1.borrow_mut();
 
@@ -113,7 +113,7 @@ impl ALSource {
     }
 
     pub fn unqueue_buffer(&self, buffer: Arc<ALBuffer>) -> ALResult<bool> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         let mut buffers = self.1.borrow_mut();
 
@@ -130,7 +130,7 @@ impl ALSource {
 
     /// Remove all queued buffers
     pub fn unqueue_all_buffers(&self) -> ALResult<Vec<Arc<ALBuffer>>> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         let mut buffers = self.1.borrow_mut();
 
@@ -157,7 +157,7 @@ impl ALSource {
     /// This number might not be equal to `source.buffers().len()`,
     /// as this is the count maintained by OpenAL itself.
     pub fn buffers_queued(&self) -> ALResult<usize> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         let mut count = 0;
 
@@ -170,7 +170,7 @@ impl ALSource {
 
     /// Returns the number of buffers that have been played.
     pub fn buffers_processed(&self) -> ALResult<usize> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         let mut count = 0;
 
@@ -182,7 +182,7 @@ impl ALSource {
     }
 
     pub fn set_looping(&self, looping: bool) -> ALResult<()> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         unsafe { alSourcei(self.0, AL_LOOPING, if looping { AL_TRUE } else { AL_FALSE } as ALint); }
 
@@ -198,7 +198,7 @@ impl ALSource {
 
     /// Get the active source state
     pub fn state(&self) -> ALResult<ALSourceState> {
-        try!(self.check());
+        try_rethrow!(self.check());
 
         let mut state = 0;
 
@@ -209,13 +209,13 @@ impl ALSource {
             AL_PAUSED => ALSourceState::Paused,
             AL_PLAYING => ALSourceState::Playing,
             AL_STOPPED => ALSourceState::Stopped,
-            _ => return Err(ALError::InvalidValue)
+            _ => throw!(ALError::InvalidValue)
         })
     }
 
     #[inline]
     pub fn is_playing(&self) -> ALResult<bool> {
-        Ok(self.state()? == ALSourceState::Playing)
+        Ok(try_rethrow!(self.state()) == ALSourceState::Playing)
     }
 
     impl_simple_property!(get_gain, set_gain, gain, f32, ALfloat, AL_GAIN);

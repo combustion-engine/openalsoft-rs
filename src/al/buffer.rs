@@ -5,15 +5,15 @@ use std::sync::Arc;
 use std::os::raw::c_void;
 use std::cell::Cell;
 
-use super::al_error::*;
-use super::al_format::*;
+use super::error::*;
+use super::format::*;
 
 use super::ALObject;
 
 #[derive(PartialEq, Eq)]
 pub struct ALBuffer(ALuint, Cell<Option<ALFormat>>, Cell<usize>);
 
-impl_simple_alobject!(ALBuffer, alIsBuffer, "ALBuffer");
+impl_simple_alobject!(simple ALBuffer, alIsBuffer);
 
 impl ALBuffer {
     pub fn new() -> ALResult<Arc<ALBuffer>> {
@@ -27,25 +27,25 @@ impl ALBuffer {
     }
 
     pub fn from_elements<T>(data: &Vec<T>, format: ALFormat) -> ALResult<Arc<ALBuffer>> {
-        let buffer = ALBuffer::new()?;
+        let buffer = try_rethrow!(ALBuffer::new());
 
-        buffer.buffer_elements(data, format)?;
+        try_rethrow!(buffer.buffer_elements(data, format));
 
         Ok(buffer)
     }
 
     pub fn from_slice<T>(data: &[T], format: ALFormat) -> ALResult<Arc<ALBuffer>> {
-        let buffer = ALBuffer::new()?;
+        let buffer = try_rethrow!(ALBuffer::new());
 
-        buffer.buffer_slice(data, format)?;
+        try_rethrow!(buffer.buffer_slice(data, format));
 
         Ok(buffer)
     }
 
     pub unsafe fn from_raw(data: *const c_void, size: usize, samples: usize, format: ALFormat) -> ALResult<Arc<ALBuffer>> {
-        let buffer = ALBuffer::new()?;
+        let buffer = try_rethrow!(ALBuffer::new());
 
-        buffer.buffer_raw(data, size, samples, format)?;
+        try_rethrow!(buffer.buffer_raw(data, size, samples, format));
 
         Ok(buffer)
     }
@@ -69,9 +69,9 @@ impl ALBuffer {
     /// Buffer raw data to the `ALBuffer`
     pub unsafe fn buffer_raw(&self, data: *const c_void, size: usize, samples: usize, format: ALFormat) -> ALResult<()> {
         if data.is_null() || size == 0 {
-            Err(ALError::InvalidValue)
+            throw!(ALError::InvalidValue);
         } else {
-            try!(self.check());
+            try_rethrow!(self.check());
 
             let internal_format = format.internal_format();
             let channels = format.channels();

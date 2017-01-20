@@ -1,6 +1,6 @@
 use als::all::*;
 
-use super::al_error::*;
+use super::error::*;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ALDistanceModel {
@@ -32,7 +32,7 @@ impl ALDistanceModel {
             AL_LINEAR_DISTANCE_CLAMPED => ALDistanceModel::LinearDistanceClamped,
             AL_EXPONENT_DISTANCE => ALDistanceModel::ExponentDistance,
             AL_EXPONENT_DISTANCE_CLAMPED => ALDistanceModel::ExponentDistanceClamped,
-            _ => return Err(ALError::InvalidEnum)
+            _ => throw!(ALError::InvalidEnum)
         })
     }
 }

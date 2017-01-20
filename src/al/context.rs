@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::cell::Cell;
 use std::ops::Deref;
 
-use super::al_error::*;
-use super::al_device::*;
-use super::al_listener::*;
+use super::error::*;
+use super::device::*;
+use super::listener::*;
 
 pub struct ALContext {
     raw: *mut ALCcontext,
@@ -30,7 +30,7 @@ impl ALContext {
 
         let ctx = Arc::new(ALContext { raw: ctx, device: device, thread_local: Cell::new(false) });
 
-        ctx.make_current()?;
+        try_rethrow!(ctx.make_current());
 
         Ok(ctx)
     }

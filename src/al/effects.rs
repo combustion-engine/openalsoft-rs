@@ -7,7 +7,7 @@
 use als::efx::EFXEAXREVERBPROPERTIES;
 use als::all::*;
 
-use super::al_error::*;
+use super::error::*;
 
 use nalgebra::*;
 
@@ -15,26 +15,26 @@ use nalgebra::*;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ALEffectType {
     Null,
-    Reverb,
-    EAXReverb,
-    Chorus,
-    Distortion,
-    Echo,
-    Flanger,
-    FrequencyShifter,
-    RingModulator,
-    Autowah,
-    Compressor,
-    Equalizer,
+    Reverb(ALEfxReverbProperties),
+    EAXReverb(ALEfxEAXReverbProperties),
+    Chorus(ALEfxChorusProperties),
+    Distortion(ALEfxDistortionProperties),
+    Echo(ALEfxEchoProperties),
+    Flanger(ALEfxFlangerProperties),
+    FrequencyShifter(ALEfxFrequencyShifterProperties),
+    RingModulator(ALEfxRingModulatorProperties),
+    Autowah(ALEfxAutowahProperties),
+    Compressor(ALEfxCompressorProperties),
+    Equalizer(ALEfxEqualizerProperties),
 }
 
 /// Types of filters supported by OpenAL Soft
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ALFilterType {
     Null,
-    Lowpass,
-    Highpass,
-    Bandpass,
+    Lowpass(ALEfxLowpassFilterProperties),
+    Highpass(ALEfxHighpassFilterProperties),
+    Bandpass(ALEfxBandpassFilterProperties),
 }
 
 // Have I ever mentioned Rust macros are amazing?
@@ -66,13 +66,13 @@ macro_rules! efx_struct {
                         $field: {
                             $(
                                 if $field < $min || $max < $field {
-                                    return Err(ALError::InvalidValue);
+                                    throw!(ALError::InvalidValue);
                                 }
                             )*
 
                             $(
                                 if !$check(&$field) {
-                                    return Err(ALError::InvalidValue);
+                                    throw!(ALError::InvalidValue);
                                 }
                             )*
 
@@ -87,13 +87,13 @@ macro_rules! efx_struct {
                 $(
                     $(
                         if self.$field < $min || $max < self.$field {
-                            return Err(ALError::InvalidValue);
+                            throw!(ALError::InvalidValue);
                         }
                     )*
 
                     $(
                         if !$check(&self.$field) {
-                            return Err(ALError::InvalidValue);
+                            throw!(ALError::InvalidValue);
                         }
                     )*
                 )*
@@ -108,13 +108,13 @@ macro_rules! efx_struct {
                 pub fn $field(&mut self, $field: $t) -> ALResult<()> {
                     $(
                         if $field < $min || $max < $field {
-                            return Err(ALError::InvalidValue);
+                            throw!(ALError::InvalidValue);
                         }
                     )*
 
                     $(
                         if !$check(&$field) {
-                            return Err(ALError::InvalidValue);
+                            throw!(ALError::InvalidValue);
                         }
                     )*
 

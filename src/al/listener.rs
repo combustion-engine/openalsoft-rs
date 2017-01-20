@@ -5,13 +5,13 @@ use std::sync::Arc;
 
 use nalgebra::*;
 
-use super::al_error::*;
-use super::al_state::*;
-use super::al_device::*;
-use super::al_context::*;
-use super::al_source::*;
-use super::al_source_3d::*;
-use super::al_distance_model::*;
+use super::error::*;
+use super::state::*;
+use super::device::*;
+use super::context::*;
+use super::source::*;
+use super::source_3d::*;
+use super::distance_model::*;
 
 pub struct ALListener {
     context: Arc<ALContext>,
@@ -42,7 +42,7 @@ impl ALListener {
 
     #[inline]
     pub fn get_distance_model(&self) -> ALResult<ALDistanceModel> {
-        ALDistanceModel::from_alenum(ALState::get_integer(AL_DISTANCE_MODEL)?)
+        ALDistanceModel::from_alenum(try_rethrow!(ALState::get_integer(AL_DISTANCE_MODEL)))
     }
 
     pub fn set_doppler_factor(&self, factor: ALfloat) -> ALResult<()> {

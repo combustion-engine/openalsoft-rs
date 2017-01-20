@@ -7,7 +7,9 @@ use std::ffi::{NulError};
 use std::string::FromUtf8Error;
 use std::sync::atomic::{Ordering, AtomicBool, ATOMIC_BOOL_INIT};
 
-pub type ALResult<T> = Result<T, ALError>;
+use trace_error::TraceResult;
+
+pub type ALResult<T> = TraceResult<T, ALError>;
 
 #[derive(Debug)]
 pub enum ALError {
@@ -34,32 +36,24 @@ static mut CHECK_DISABLED: AtomicBool = ATOMIC_BOOL_INIT;
 
 #[macro_export]
 macro_rules! check_al_errors {
-    () => {if let Err(err) = ALError::check() {
-        println!("ALError ({:?})", err);
-        return Err(err.into());
-    }};
+    () => {try_rethrow!(ALError::check())};
 
-    ($ret:expr) => { if let Err(err) = ALError::check() {
-        println!("ALError ({:?})", err);
-        return Err(err.into());
-   } else {
+    ($ret:expr) => {
+        try_rethrow!(ALError::check());
+
         $ret
-   }};
+    };
 }
 
 #[macro_export]
 macro_rules! check_alc_errors {
-    () => {if let Err(err) = ALError::check_alc() {
-        println!("ALCError ({:?})", err);
-        return Err(err.into());
-    }};
+    () => {try_rethrow!(ALError::check_alc())};
 
-    ($ret:expr) => { if let Err(err) = ALError::check_alc() {
-        println!("ALCError ({:?})", err);
-        return Err(err.into());
-   } else {
+    ($ret:expr) => {
+        try_rethrow!(ALError::check_alc());
+
         $ret
-   }};
+    };
 }
 
 impl ALError {
@@ -71,7 +65,7 @@ impl ALError {
             let err = unsafe { alGetError() };
 
             if err != AL_NO_ERROR {
-                return Err(match err {
+                throw!(match err {
                     AL_INVALID_NAME => ALError::InvalidName,
                     AL_INVALID_ENUM => ALError::InvalidEnum,
                     AL_INVALID_VALUE => ALError::InvalidValue,
@@ -81,7 +75,7 @@ impl ALError {
                 });
             }
 
-            try!(ALError::check_alc());
+            try_rethrow!(ALError::check_alc());
         }
 
         Ok(())
@@ -98,7 +92,7 @@ impl ALError {
                     let err = unsafe { alcGetError(device) };
 
                     if err != ALC_NO_ERROR {
-                        return Err(match err {
+                        throw!(match err {
                             ALC_INVALID_DEVICE => ALError::InvalidDevice,
                             ALC_INVALID_CONTEXT => ALError::InvalidContext,
                             ALC_INVALID_ENUM => ALError::InvalidEnum,

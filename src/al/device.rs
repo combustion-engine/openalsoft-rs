@@ -6,9 +6,9 @@ use std::sync::Arc;
 use std::borrow::Cow;
 use std::ffi::{CString, CStr};
 
-use super::al_error::*;
-use super::al_context::*;
-use super::al_listener::*;
+use super::error::*;
+use super::context::*;
+use super::listener::*;
 
 lazy_static! {
     /// `NULL_DEVICE` is useful for checking system capabilities before creating a real device instance.
@@ -30,7 +30,7 @@ impl ALDevice {
 
     pub fn open(name: Option<&str>) -> ALResult<Arc<ALDevice>> {
         let device = if let Some(name) = name {
-            let c_name = CString::new(name)?;
+            let c_name = try_throw!(CString::new(name));
 
             unsafe { alcOpenDevice(c_name.as_ptr() as *const ALchar) }
         } else {
@@ -47,7 +47,7 @@ impl ALDevice {
     }
 
     pub fn extension_present(&self, extension: &str) -> ALResult<bool> {
-        let c_ext = CString::new(extension)?;
+        let c_ext = try_throw!(CString::new(extension));
 
         let res = unsafe { alcIsExtensionPresent(self.raw, c_ext.as_ptr() as *const _) };
 
@@ -57,7 +57,7 @@ impl ALDevice {
     }
 
     pub fn name(&self) -> ALResult<Cow<str>> {
-        if self.extension_present(ALC_ENUMERATE_ALL_EXT_NAME)? {
+        if try_rethrow!(self.extension_present(ALC_ENUMERATE_ALL_EXT_NAME)) {
             self.get_string(ALC_ALL_DEVICES_SPECIFIER)
         } else {
             self.get_string(ALC_DEVICE_SPECIFIER)
@@ -75,14 +75,14 @@ impl ALDevice {
     }
 
     pub fn get_enum(&self, name: &str) -> ALResult<ALenum> {
-        let c_str = CString::new(name)?;
+        let c_str = try_throw!(CString::new(name));
 
         let res = unsafe { alcGetEnumValue(self.raw, c_str.as_ptr()) };
 
         check_alc_errors!();
 
         if res == 0 || res == -1 {
-            Err(ALError::InvalidEnum)
+            throw!(ALError::InvalidEnum);
         } else {
             Ok(res)
         }
@@ -147,7 +147,7 @@ impl ALDevice {
 
             Ok(results)
         } else {
-            Ok(vec![self.get_string(param)?])
+            Ok(vec![try_rethrow!(self.get_string(param))])
         }
     }
 }
@@ -163,7 +163,7 @@ impl ALDeviceArc for Arc<ALDevice> {
     }
 
     fn create_listener(&self) -> ALResult<Arc<ALListener>> {
-        Ok(ALListener::new(self.create_context()?))
+        Ok(ALListener::new(try_rethrow!(self.create_context())))
     }
 }
 
