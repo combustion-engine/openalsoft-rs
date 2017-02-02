@@ -7,13 +7,13 @@ version = "0.1.0"
 lazy_static = "0.2.2"
 serde = "0.8.21"
 serde_derive = "0.8.21"
-trace-error = "0.1.2"
+trace-error = "0.1"
 
 [dependencies.nalgebra]
-path = "../nalgebra"
+git = "https://github.com/combustion-engine/nalgebra"
 
 [dependencies.openalsoft-sys]
-path = "../openalsoft-sys"
+git = "https://github.com/combustion-engine/openalsoft-sys"
 
 [dev-dependencies]
 dsp-chain = "0.13.1"
